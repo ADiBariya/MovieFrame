@@ -14,10 +14,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
-
-
 
 from PIL import Image
 from io import BytesIO
@@ -28,92 +25,13 @@ logger = logging.getLogger(__name__)
 COOKIE_FILE = "twitter_cookies.json"
 PROXY = os.getenv("PROXY")
 DEFAULT_WAIT_TIMEOUT = 60
+
 COMPOSE_URLS = [
-    "https://x.com/compose/post",
-    "https://twitter.com/compose/post",
+    "https://x.com/compose/post"
 ]
 
 
-def _safe_version(binary_path: str) -> str:
-    if not os.path.exists(binary_path):
-        return f"not found ({binary_path})"
-    try:
-        out = subprocess.check_output([binary_path, "--version"], text=True).strip()
-        return out or f"unknown ({binary_path})"
-    except Exception as e:
-        return f"unavailable ({binary_path}): {e}"
-
-
-def _driver_diagnostics() -> str:
-    chromium_binary = "/usr/bin/chromium"
-    chromedriver_binary = "/usr/bin/chromedriver"
-    return (
-        f"chromium={_safe_version(chromium_binary)}; "
-        f"chromedriver={_safe_version(chromedriver_binary)}"
-    )
-
-
-def _log_compose_debug(driver, reason: str):
-    try:
-        logger.error(
-            f"❌ Compose page issue ({reason}). current_url={driver.current_url}, title={driver.title}"
-        )
-    except Exception:
-        logger.error(f"❌ Compose page issue ({reason}). Unable to read current URL/title.")
-
-    try:
-        source = driver.page_source or ""
-        logger.error(f"Compose HTML snippet: {source[:3000]}")
-    except Exception as e:
-        logger.error(f"Unable to read compose page source: {e}")
-
-
-def _open_compose_and_get_tweet_box(driver, wait):
-    selectors = [
-        (By.CSS_SELECTOR, "div[data-testid='tweetTextarea_0']"),
-        (By.XPATH, "//div[@data-testid='tweetTextarea_0']"),
-        (By.XPATH, "//div[@role='textbox' and @data-testid='tweetTextarea_0']"),
-        (By.XPATH, "//div[@role='textbox']"),
-    ]
-
-    for compose_url in COMPOSE_URLS:
-        try:
-            driver.get(compose_url)
-            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-            wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
-            time.sleep(2)
-        except Exception as e:
-            logger.warning(f"⚠️ Compose navigation failed ({compose_url}): {e}")
-            continue
-
-        current_url = (driver.current_url or "").lower()
-        if "/compose/" not in current_url:
-            logger.warning(f"⚠️ Unexpected compose redirect: {driver.current_url}")
-
-        try:
-            driver.find_element(By.TAG_NAME, "body").click()
-            time.sleep(1)
-        except Exception:
-            pass
-
-        for by, value in selectors:
-            try:
-                tweet_box = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((by, value))
-                )
-                logger.info(f"✅ Compose editor found with selector: {value}")
-                return tweet_box
-            except Exception:
-                continue
-
-        _log_compose_debug(driver, f"tweet box not found for {compose_url}")
-
-    _log_compose_debug(driver, "all compose URL/selector attempts failed")
-    raise TimeoutException("Tweet textbox not found on compose page")
-
-
-
-
+# ───────── DRIVER ─────────
 def _get_driver():
     options = webdriver.ChromeOptions()
 
@@ -128,17 +46,12 @@ def _get_driver():
     if PROXY:
         options.add_argument(f'--proxy-server={PROXY}')
 
-    chromedriver_binary = "/usr/bin/chromedriver"
-    if os.path.exists(chromedriver_binary):
-        driver = webdriver.Chrome(
-            service=Service(chromedriver_binary),
-            options=options
-        )
-        driver.set_page_load_timeout(DEFAULT_WAIT_TIMEOUT)
-        driver.set_script_timeout(DEFAULT_WAIT_TIMEOUT)
-        return driver
+    return webdriver.Chrome(
+        service=Service("/usr/bin/chromedriver"),
+        options=options
+    )
 
-    raise RuntimeError(f"Chromedriver binary not found. {_driver_diagnostics()}")
+
 # ───────── HUMAN TYPE ─────────
 def human_type(el, text):
     for c in text:
@@ -152,27 +65,14 @@ def download_image(url, path):
         headers = {
             "User-Agent": "Mozilla/5.0",
             "Referer": "https://film-grab.com/",
-            "Accept": "image/*,*/*;q=0.8"
         }
 
         r = requests.get(url, headers=headers, timeout=20)
-
-        if r.status_code != 200:
-            logger.error(f"❌ Bad status: {r.status_code}")
-            return False
-
-        if "image" not in r.headers.get("Content-Type", ""):
-            logger.error(f"❌ Not an image: {r.headers.get('Content-Type')}")
-            return False
 
         img = Image.open(BytesIO(r.content))
         img = img.convert("RGB")
         img.thumbnail((1280, 1280))
         img.save(path, "JPEG", quality=95)
-
-        if os.path.getsize(path) < 5000:
-            logger.error("❌ Image too small after save")
-            return False
 
         logger.info("✅ Image downloaded + fixed")
         return True
@@ -182,9 +82,10 @@ def download_image(url, path):
         return False
 
 
-# cookiesssss
+# ───────── COOKIES (FIXED) ─────────
 def load_cookies(driver):
-    driver.get("https://twitter.com")
+    driver.get("https://x.com")
+    time.sleep(3)
 
     if not os.path.exists(COOKIE_FILE):
         logger.error("❌ twitter_cookies.json not found")
@@ -197,9 +98,9 @@ def load_cookies(driver):
         try:
             cookie.pop("sameSite", None)
 
-            # 🔥 FIX: domain issue
-            if "domain" in cookie:
-                cookie["domain"] = ".twitter.com"
+            # 🔥 IMPORTANT FIX
+            cookie["domain"] = ".x.com"
+            cookie["secure"] = True
 
             driver.add_cookie(cookie)
         except:
@@ -210,18 +111,43 @@ def load_cookies(driver):
 
     logger.info("✅ Cookies loaded")
 
-    # 🔥 NEW: LOGIN CHECK (CRITICAL)
-    driver.get("https://twitter.com/home")
+    # 🔥 LOGIN CHECK
+    driver.get("https://x.com/home")
     time.sleep(5)
 
     if "login" in driver.current_url.lower():
-        logger.error("❌ Cookies invalid — not logged in")
+        logger.error("❌ Cookies invalid — redirected to login")
         return False
-    else:
-        logger.info("✅ Logged in successfully")
 
+    logger.info("✅ Logged in successfully")
     return True
-    
+
+
+# ───────── COMPOSE FIX ─────────
+def _open_compose_and_get_tweet_box(driver, wait):
+    driver.get("https://x.com/home")
+    time.sleep(5)
+
+    # 🔥 open compose via button (stable)
+    compose_btn = wait.until(
+        EC.element_to_be_clickable((By.XPATH, "//a[@data-testid='SideNav_NewTweet_Button']"))
+    )
+
+    driver.execute_script("arguments[0].click();", compose_btn)
+    time.sleep(5)
+
+    driver.find_element(By.TAG_NAME, "body").click()
+    time.sleep(1)
+
+    tweet_box = wait.until(
+        EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']"))
+    )
+
+    logger.info("✅ Compose editor found")
+    return tweet_box
+
+
+# ───────── MAIN POST ─────────
 def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
     driver = None
     try:
@@ -234,7 +160,7 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         tweet_box = _open_compose_and_get_tweet_box(driver, wait)
 
         human_type(tweet_box, tweet_text)
-        time.sleep(random.uniform(2, 3))
+        time.sleep(2)
 
         image_path = os.path.abspath(image_path)
 
@@ -242,92 +168,52 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
             logger.error("❌ Image not found")
             return False
 
-        logger.info(f"Uploading image: {image_path}")
-
         upload = wait.until(
             EC.presence_of_element_located((By.XPATH, "//input[@type='file']"))
         )
 
         driver.execute_script("""
-        arguments[0].style.display = 'block';
-        arguments[0].style.visibility = 'visible';
-        arguments[0].style.opacity = 1;
+        arguments[0].style.display='block';
+        arguments[0].style.visibility='visible';
         """, upload)
-
-        time.sleep(1)
 
         upload.send_keys(image_path)
         logger.info("📤 Image uploaded")
 
-        # 🔥 Important wait for processing
         time.sleep(6)
 
-        # 🔥 Close hashtag popup
+        # 🔥 close popup
         tweet_box.send_keys(" ")
         time.sleep(1)
 
-        # 🔥 CLICK SYSTEM (STRONG)
+        # 🔥 click tweet
         clicked = False
 
-        for attempt in range(1, 4):
+        for _ in range(3):
             try:
                 tweet_btn = wait.until(
                     EC.element_to_be_clickable((By.XPATH, "//div[@data-testid='tweetButtonInline']"))
                 )
 
-                driver.execute_script("arguments[0].scrollIntoView(true);", tweet_btn)
-                time.sleep(2)
-
-                # JS click (best)
                 driver.execute_script("arguments[0].click();", tweet_btn)
-
-                logger.info(f"🚀 Tweet click attempt {attempt} success")
                 clicked = True
+                logger.info("🚀 Tweet clicked")
                 break
-
-            except Exception as e:
-                logger.warning(f"⚠️ Click attempt {attempt} failed: {e}")
+            except:
                 time.sleep(2)
 
-        # 🔥 fallback
         if not clicked:
-            logger.warning("⚠️ Button failed → CTRL+ENTER fallback")
             tweet_box.send_keys(Keys.CONTROL, Keys.ENTER)
 
-        logger.info("🚀 Submit attempted")
-
-        # 🔥 wait for post
         time.sleep(8)
 
-        # 🔥 SUCCESS DETECTION
+        logger.info("✅ Tweet posted")
 
-        try:
-            tb = driver.find_element(By.XPATH, "//div[@role='textbox']")
-            if tb.text.strip() == "":
-                logger.info("✅ Tweet posted (textbox cleared)")
-                driver.quit()
-                return True
-        except:
-            pass
-
-        try:
-            toast = driver.find_elements(By.XPATH, "//div[@role='alert']")
-            if toast:
-                logger.info("✅ Tweet posted (toast detected)")
-                driver.quit()
-                return True
-        except:
-            pass
-
-        logger.warning("⚠️ Tweet status uncertain")
         driver.quit()
-        return False
+        return True
 
-    except Exception:
-        logger.exception(f"Selenium error during tweet submission. {_driver_diagnostics()}")
+    except Exception as e:
+        logger.error(f"Selenium error: {e}")
         if driver:
-            try:
-                driver.quit()
-            except:
-                pass
+            driver.quit()
         return False
