@@ -32,6 +32,7 @@ COMPOSE_URLS = [
 
 
 # ───────── DRIVER ─────────
+# ───────── DRIVER ─────────
 def _get_driver():
     options = webdriver.ChromeOptions()
 
@@ -42,6 +43,8 @@ def _get_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
+
+    # 🔥 EXISTING (KEEP)
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-background-networking")
     options.add_argument("--disable-sync")
@@ -53,6 +56,18 @@ def _get_driver():
     options.add_argument("--disable-renderer-backgrounding")
     options.add_argument("--disable-device-discovery-notifications")
 
+    # 🔥 NEW (CRASH FIX)
+    options.add_argument("--js-flags=--max-old-space-size=128")
+    options.add_argument("--shm-size=256m")
+
+    # 🔥 BIG IMPACT (disable images)
+    prefs = {
+        "profile.managed_default_content_settings.images": 2,
+        "profile.default_content_setting_values.notifications": 2,
+        "profile.default_content_setting_values.geolocation": 2,
+    }
+    options.add_experimental_option("prefs", prefs)
+
     if PROXY:
         options.add_argument(f'--proxy-server={PROXY}')
 
@@ -60,7 +75,6 @@ def _get_driver():
         service=Service("/usr/bin/chromedriver"),
         options=options
     )
-
 
 # ───────── HUMAN TYPE ─────────
 def human_type(el, text):
