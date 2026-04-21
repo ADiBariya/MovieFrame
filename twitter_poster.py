@@ -30,7 +30,6 @@ def _get_driver():
     options = webdriver.ChromeOptions()
     options.binary_location = "/usr/bin/chromium"
 
-    # 🔥 STABLE HEADLESS
     options.add_argument("--headless")
     options.add_argument("--disable-features=VizDisplayCompositor")
 
@@ -38,19 +37,19 @@ def _get_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
-    # 🔥 CRASH FIX
+    # crash fix
     options.add_argument("--renderer-process-limit=1")
     options.add_argument("--single-process")
     options.add_argument("--js-flags=--max-old-space-size=128")
 
-    # 🔥 LIGHT MODE
+    # light mode
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-background-networking")
     options.add_argument("--disable-sync")
     options.add_argument("--no-first-run")
     options.add_argument("--disable-renderer-backgrounding")
 
-    # 🔥 IMPORTANT (memory safe)
+    # ❌ REMOVE IMAGE BLOCK (IMPORTANT FIX)
     # options.add_argument("--blink-settings=imagesEnabled=false")
 
     options.add_argument("--window-size=800,600")
@@ -187,14 +186,24 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         upload.send_keys(image_path)
         logger.info("📤 Image uploading...")
 
-        # 🔥 LIGHT WAIT (no UI dependency → stable)
-        time.sleep(5)
+        # ✅ REAL FIX — WAIT FOR IMAGE ATTACH
+        try:
+            wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//div[@data-testid='tweetPhoto'] | //img[contains(@src,'media')]")
+                )
+            )
+            logger.info("✅ Image attached")
+        except:
+            logger.error("❌ Image attach failed")
+            return False
+
+        time.sleep(2)
 
         # close hashtag popup
         tweet_box.send_keys(" ")
         time.sleep(1)
 
-        # post
         clicked = False
         for _ in range(3):
             try:
