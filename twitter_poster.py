@@ -17,6 +17,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 
 
+
 from PIL import Image
 from io import BytesIO
 
@@ -27,11 +28,11 @@ COOKIE_FILE = "twitter_cookies.json"
 PROXY = os.getenv("PROXY")
 
 
-# ───────── DRIVER ─────────
+
+
 def _get_driver():
     options = webdriver.ChromeOptions()
 
-    # 🔥 REQUIRED FOR RAILWAY
     options.binary_location = "/usr/bin/chromium"
 
     options.add_argument("--headless=new")
@@ -40,17 +41,13 @@ def _get_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
 
-    # optional
-    options.add_argument("--disable-notifications")
-
     if PROXY:
         options.add_argument(f'--proxy-server={PROXY}')
 
     return webdriver.Chrome(
-        service=Service("/usr/bin/chromedriver"),
+        service=Service(ChromeDriverManager().install()),
         options=options
     )
-
 # ───────── HUMAN TYPE ─────────
 def human_type(el, text):
     for c in text:
