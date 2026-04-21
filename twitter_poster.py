@@ -30,7 +30,10 @@ def _get_driver():
     options = webdriver.ChromeOptions()
     options.binary_location = "/usr/bin/chromium"
 
+    # 🔥 STABLE HEADLESS
     options.add_argument("--headless")
+    options.add_argument("--disable-features=VizDisplayCompositor")
+
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -44,8 +47,10 @@ def _get_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-background-networking")
     options.add_argument("--disable-sync")
+    options.add_argument("--no-first-run")
+    options.add_argument("--disable-renderer-backgrounding")
 
-    # 🔥 IMPORTANT → images OFF (memory बचाने के लिए)
+    # 🔥 IMPORTANT (memory safe)
     options.add_argument("--blink-settings=imagesEnabled=false")
 
     options.add_argument("--window-size=800,600")
@@ -69,11 +74,21 @@ def human_type(el, text):
 # ───────── DOWNLOAD IMAGE ─────────
 def download_image(url, path):
     try:
-        r = requests.get(url, timeout=20)
-        img = Image.open(BytesIO(r.content)).convert("RGB")
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://film-grab.com/",
+        }
+
+        r = requests.get(url, headers=headers, timeout=20)
+
+        img = Image.open(BytesIO(r.content))
+        img = img.convert("RGB")
+        img.thumbnail((1280, 1280))
         img.save(path, "JPEG", quality=95)
+
         logger.info("✅ Image downloaded + fixed")
         return True
+
     except Exception as e:
         logger.error(f"Download error: {e}")
         return False
@@ -85,15 +100,17 @@ def load_cookies(driver):
     time.sleep(3)
 
     if not os.path.exists(COOKIE_FILE):
-        logger.error("❌ cookies missing")
+        logger.error("❌ twitter_cookies.json not found")
         return False
 
-    with open(COOKIE_FILE, "r") as f:
+    with open(COOKIE_FILE, "r", encoding="utf-8") as f:
         cookies = json.load(f)
 
     for cookie in cookies:
         try:
+            cookie.pop("sameSite", None)
             cookie["domain"] = ".x.com"
+            cookie["secure"] = True
             driver.add_cookie(cookie)
         except:
             pass
@@ -101,16 +118,44 @@ def load_cookies(driver):
     driver.refresh()
     time.sleep(5)
 
-    if "login" in driver.current_url:
-        logger.error("❌ cookies expired")
+    logger.info("✅ Cookies loaded")
+
+    driver.get("https://x.com/home")
+    time.sleep(5)
+
+    if "login" in driver.current_url.lower():
+        logger.error("❌ Cookies invalid — redirected to login")
         return False
 
     logger.info("✅ Logged in successfully")
     return True
 
 
+# ───────── OPEN COMPOSE ─────────
+def _open_compose_and_get_tweet_box(driver, wait):
+    driver.get("https://x.com/home")
+    time.sleep(5)
+
+    compose_btn = wait.until(
+        EC.element_to_be_clickable((By.XPATH, "//a[@data-testid='SideNav_NewTweet_Button']"))
+    )
+
+    driver.execute_script("arguments[0].click();", compose_btn)
+    time.sleep(5)
+
+    driver.find_element(By.TAG_NAME, "body").click()
+    time.sleep(1)
+
+    tweet_box = wait.until(
+        EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']"))
+    )
+
+    logger.info("✅ Compose editor found")
+    return tweet_box
+
+
 # ───────── MAIN POST ─────────
-def post_meme_tweet(image_path, tweet_text):
+def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
     driver = None
     try:
         driver = _get_driver()
@@ -119,28 +164,30 @@ def post_meme_tweet(image_path, tweet_text):
         if not load_cookies(driver):
             return False
 
-        # open compose
-        driver.get("https://x.com/compose/post")
-        time.sleep(5)
-
-        tweet_box = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']"))
-        )
-
-        logger.info("✅ Compose editor found")
+        tweet_box = _open_compose_and_get_tweet_box(driver, wait)
 
         human_type(tweet_box, tweet_text)
         time.sleep(2)
 
-        # upload image
+        image_path = os.path.abspath(image_path)
+
+        if not os.path.exists(image_path):
+            logger.error("❌ Image not found")
+            return False
+
         upload = wait.until(
             EC.presence_of_element_located((By.XPATH, "//input[@type='file']"))
         )
 
-        upload.send_keys(os.path.abspath(image_path))
+        driver.execute_script("""
+        arguments[0].style.display='block';
+        arguments[0].style.visibility='visible';
+        """, upload)
+
+        upload.send_keys(image_path)
         logger.info("📤 Image uploading...")
 
-        # 🔥 lightweight wait (NO UI dependency)
+        # 🔥 LIGHT WAIT (no UI dependency → stable)
         time.sleep(5)
 
         # close hashtag popup
@@ -148,12 +195,20 @@ def post_meme_tweet(image_path, tweet_text):
         time.sleep(1)
 
         # post
-        try:
-            tweet_btn = wait.until(
-                EC.element_to_be_clickable((By.XPATH, "//div[@data-testid='tweetButtonInline']"))
-            )
-            driver.execute_script("arguments[0].click();", tweet_btn)
-        except:
+        clicked = False
+        for _ in range(3):
+            try:
+                tweet_btn = wait.until(
+                    EC.element_to_be_clickable((By.XPATH, "//div[@data-testid='tweetButtonInline']"))
+                )
+                driver.execute_script("arguments[0].click();", tweet_btn)
+                clicked = True
+                logger.info("🚀 Tweet clicked")
+                break
+            except:
+                time.sleep(2)
+
+        if not clicked:
             tweet_box.send_keys(Keys.CONTROL, Keys.ENTER)
 
         time.sleep(6)
