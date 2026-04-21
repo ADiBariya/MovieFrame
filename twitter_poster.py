@@ -214,21 +214,33 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
             logger.warning("⚠️ Button failed → CTRL+ENTER fallback")
             tweet_box.send_keys(Keys.CONTROL, Keys.ENTER)
 
-        logger.info("🚀 Submit attempted")
+                logger.info("🚀 Submit attempted")
 
-        time.sleep(6)
+        time.sleep(8)
 
         try:
-            if "compose" not in driver.current_url:
-                logger.info("✅ Tweet posted")
+            # 🔥 METHOD 1: textbox cleared
+            tb = driver.find_element(By.XPATH, "//div[@data-testid='tweetTextarea_0']")
+            if tb.text.strip() == "":
+                logger.info("✅ Tweet posted (textbox cleared)")
                 driver.quit()
                 return True
         except:
             pass
 
-        driver.quit()
-        return True
+        try:
+            # 🔥 METHOD 2: toast message
+            toast = driver.find_elements(By.XPATH, "//div[@role='alert']")
+            if toast:
+                logger.info("✅ Tweet posted (toast detected)")
+                driver.quit()
+                return True
+        except:
+            pass
 
+        logger.warning("⚠️ Tweet status uncertain")
+        driver.quit()
+        return False
     except Exception as e:
         logger.error(f"Selenium error: {e}")
         return False
