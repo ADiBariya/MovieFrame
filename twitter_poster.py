@@ -94,7 +94,7 @@ def download_image(url, path):
         return False
 
 
-# ───────── LOAD COOKIES ─────────
+# cookiesssss
 def load_cookies(driver):
     driver.get("https://twitter.com")
 
@@ -108,6 +108,11 @@ def load_cookies(driver):
     for cookie in cookies:
         try:
             cookie.pop("sameSite", None)
+
+            # 🔥 FIX: domain issue
+            if "domain" in cookie:
+                cookie["domain"] = ".twitter.com"
+
             driver.add_cookie(cookie)
         except:
             pass
@@ -116,8 +121,19 @@ def load_cookies(driver):
     time.sleep(5)
 
     logger.info("✅ Cookies loaded")
-    return True
 
+    # 🔥 NEW: LOGIN CHECK (CRITICAL)
+    driver.get("https://twitter.com/home")
+    time.sleep(5)
+
+    if "login" in driver.current_url.lower():
+        logger.error("❌ Cookies invalid — not logged in")
+        return False
+    else:
+        logger.info("✅ Logged in successfully")
+
+    return True
+    
 def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
     try:
         driver = _get_driver()
