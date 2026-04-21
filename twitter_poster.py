@@ -214,7 +214,7 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
             logger.warning("⚠️ Button failed → CTRL+ENTER fallback")
             tweet_box.send_keys(Keys.CONTROL, Keys.ENTER)
 
-                logger.info("🚀 Submit attempted")
+        logger.info("🚀 Submit attempted")
 
         time.sleep(8)
 
