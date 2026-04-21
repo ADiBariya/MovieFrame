@@ -39,7 +39,6 @@ TWITTER_API_KEY       = os.getenv("TWITTER_API_KEY")
 TWITTER_API_SECRET    = os.getenv("TWITTER_API_SECRET")
 TWITTER_ACCESS_TOKEN  = os.getenv("TWITTER_ACCESS_TOKEN")
 TWITTER_ACCESS_SECRET = os.getenv("TWITTER_ACCESS_SECRET")
-TWITTER_BEARER_TOKEN  = os.getenv("TWITTER_BEARER_TOKEN")
 
 HEADERS = {
     "User-Agent": (
@@ -172,31 +171,22 @@ def validate_twitter_env():
     missing = [k for k in [
         "TWITTER_API_KEY", "TWITTER_API_SECRET",
         "TWITTER_ACCESS_TOKEN", "TWITTER_ACCESS_SECRET",
-        "TWITTER_BEARER_TOKEN",
     ] if not os.getenv(k)]
     if missing:
         raise EnvironmentError(
             f"Missing Twitter env vars: {', '.join(missing)}\n"
             "Check your .env file is in the same folder as main.py "
-            "and contains all 5 Twitter keys."
+            "and contains all 4 Twitter keys."
         )
 
 
 def get_twitter_client():
-    client = tweepy.Client(
-        bearer_token=TWITTER_BEARER_TOKEN,
-        consumer_key=TWITTER_API_KEY,
-        consumer_secret=TWITTER_API_SECRET,
-        access_token=TWITTER_ACCESS_TOKEN,
-        access_token_secret=TWITTER_ACCESS_SECRET,
-        wait_on_rate_limit=True,
-    )
     auth = tweepy.OAuth1UserHandler(
         TWITTER_API_KEY, TWITTER_API_SECRET,
         TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET,
     )
     api_v1 = tweepy.API(auth, wait_on_rate_limit=True)
-    return client, api_v1
+    return api_v1
 
 
 def build_tweet_text(movie: dict) -> str:
@@ -207,14 +197,14 @@ def build_tweet_text(movie: dict) -> str:
 
 def post_to_twitter(movie: dict, image_path: str) -> bool:
     try:
-        client, api_v1 = get_twitter_client()
+        api_v1 = get_twitter_client()
         logger.info("  Uploading media to Twitter...")
-        media = api_v1.media_upload(filename=image_path)
-        response = client.create_tweet(
-            text=build_tweet_text(movie),
-            media_ids=[media.media_id]
+        api_v1.media_upload(filename=image_path)
+        tweet = api_v1.update_status_with_media(
+            status=build_tweet_text(movie),
+            filename=image_path
         )
-        logger.info(f"  Tweet posted! ID: {response.data['id']}")
+        logger.info(f"  Tweet posted! ID: {tweet.id}")
         return True
     except tweepy.TweepyException as e:
         logger.error(f"Twitter API error: {e}")
