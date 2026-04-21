@@ -3,13 +3,13 @@ import time
 import random
 import logging
 import json
+import subprocess
 import requests
 from dotenv import load_dotenv
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -28,6 +28,25 @@ COOKIE_FILE = "twitter_cookies.json"
 PROXY = os.getenv("PROXY")
 
 
+def _safe_version(binary_path: str) -> str:
+    if not os.path.exists(binary_path):
+        return f"not found ({binary_path})"
+    try:
+        out = subprocess.check_output([binary_path, "--version"], text=True).strip()
+        return out or f"unknown ({binary_path})"
+    except Exception as e:
+        return f"unavailable ({binary_path}): {e}"
+
+
+def _driver_diagnostics() -> str:
+    chromium_binary = "/usr/bin/chromium"
+    chromedriver_binary = "/usr/bin/chromedriver"
+    return (
+        f"chromium={_safe_version(chromium_binary)}; "
+        f"chromedriver={_safe_version(chromedriver_binary)}"
+    )
+
+
 
 
 def _get_driver():
@@ -44,10 +63,14 @@ def _get_driver():
     if PROXY:
         options.add_argument(f'--proxy-server={PROXY}')
 
-    return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
+    chromedriver_binary = "/usr/bin/chromedriver"
+    if os.path.exists(chromedriver_binary):
+        return webdriver.Chrome(
+            service=Service(chromedriver_binary),
+            options=options
+        )
+
+    raise RuntimeError(f"Chromedriver binary not found. {_driver_diagnostics()}")
 # ───────── HUMAN TYPE ─────────
 def human_type(el, text):
     for c in text:
@@ -239,5 +262,5 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         driver.quit()
         return False
     except Exception as e:
-        logger.error(f"Selenium error: {e}")
+        logger.error(f"Selenium error: {e}. {_driver_diagnostics()}")
         return False
