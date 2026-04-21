@@ -30,17 +30,26 @@ PROXY = os.getenv("PROXY")
 # ───────── DRIVER ─────────
 def _get_driver():
     options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
+
+    # 🔥 REQUIRED FOR RAILWAY
+    options.binary_location = "/usr/bin/chromium"
+
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+
+    # optional
     options.add_argument("--disable-notifications")
 
     if PROXY:
         options.add_argument(f'--proxy-server={PROXY}')
 
     return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
+        service=Service("/usr/bin/chromedriver"),
         options=options
     )
-
 
 # ───────── HUMAN TYPE ─────────
 def human_type(el, text):
