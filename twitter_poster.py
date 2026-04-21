@@ -51,7 +51,7 @@ def _get_driver():
     options.add_argument("--disable-renderer-backgrounding")
 
     # 🔥 IMPORTANT (memory safe)
-    options.add_argument("--blink-settings=imagesEnabled=false")
+    # options.add_argument("--blink-settings=imagesEnabled=false")
 
     options.add_argument("--window-size=800,600")
 
