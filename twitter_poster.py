@@ -167,11 +167,17 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         if not load_cookies(driver):
             return False
 
+        # 🔥 Open compose
         driver.get("https://twitter.com/compose/post")
         time.sleep(5)
 
+        # 🔥 Fix focus issue (IMPORTANT)
+        driver.find_element(By.TAG_NAME, "body").click()
+        time.sleep(1)
+
+        # 🔥 STABLE selector
         tweet_box = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//div[@data-testid='tweetTextarea_0']"))
+            EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']"))
         )
 
         human_type(tweet_box, tweet_text)
@@ -200,54 +206,50 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         upload.send_keys(image_path)
         logger.info("📤 Image uploaded")
 
-        time.sleep(8)
+        # 🔥 Important wait for processing
+        time.sleep(6)
 
-        # 🔥 SPACE FIX (popup close)
-        logger.info("🔥 Closing hashtag popup via SPACE")
+        # 🔥 Close hashtag popup
         tweet_box.send_keys(" ")
         time.sleep(1)
 
+        # 🔥 CLICK SYSTEM (STRONG)
         clicked = False
+
         for attempt in range(1, 4):
             try:
-                wait.until(EC.presence_of_element_located((By.XPATH, "//div[@data-testid='tweetTextarea_0']")))
-                wait.until(EC.url_contains("/compose"))
                 tweet_btn = wait.until(
                     EC.element_to_be_clickable((By.XPATH, "//div[@data-testid='tweetButtonInline']"))
                 )
+
                 driver.execute_script("arguments[0].scrollIntoView(true);", tweet_btn)
                 time.sleep(2)
-                tweet_btn.click()
-                time.sleep(1)
-                if "/compose" not in driver.current_url.lower():
-                    logger.warning(f"⚠️ Compose screen changed during submit: {driver.current_url}")
+
+                # JS click (best)
+                driver.execute_script("arguments[0].click();", tweet_btn)
+
+                logger.info(f"🚀 Tweet click attempt {attempt} success")
                 clicked = True
                 break
-            except Exception as click_error:
-                logger.warning(f"⚠️ Tweet button click attempt {attempt}/3 failed: {click_error}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ Click attempt {attempt} failed: {e}")
                 time.sleep(2)
 
-        if not clicked:
-            try:
-                tweet_btn = wait.until(
-                    EC.presence_of_element_located((By.XPATH, "//div[@data-testid='tweetButtonInline']"))
-                )
-                driver.execute_script("arguments[0].click();", tweet_btn)
-                clicked = True
-            except Exception as js_click_error:
-                logger.warning(f"⚠️ JS click fallback failed: {js_click_error}")
-
+        # 🔥 fallback
         if not clicked:
             logger.warning("⚠️ Button failed → CTRL+ENTER fallback")
             tweet_box.send_keys(Keys.CONTROL, Keys.ENTER)
 
         logger.info("🚀 Submit attempted")
 
+        # 🔥 wait for post
         time.sleep(8)
 
+        # 🔥 SUCCESS DETECTION
+
         try:
-            # 🔥 METHOD 1: textbox cleared
-            tb = driver.find_element(By.XPATH, "//div[@data-testid='tweetTextarea_0']")
+            tb = driver.find_element(By.XPATH, "//div[@role='textbox']")
             if tb.text.strip() == "":
                 logger.info("✅ Tweet posted (textbox cleared)")
                 driver.quit()
@@ -256,7 +258,6 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
             pass
 
         try:
-            # 🔥 METHOD 2: toast message
             toast = driver.find_elements(By.XPATH, "//div[@role='alert']")
             if toast:
                 logger.info("✅ Tweet posted (toast detected)")
@@ -268,11 +269,12 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         logger.warning("⚠️ Tweet status uncertain")
         driver.quit()
         return False
+
     except Exception:
         logger.exception(f"Selenium error during tweet submission. {_driver_diagnostics()}")
         if driver:
             try:
                 driver.quit()
-            except Exception:
+            except:
                 pass
         return False
