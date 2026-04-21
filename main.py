@@ -199,7 +199,6 @@ def post_to_twitter(movie: dict, image_path: str) -> bool:
     try:
         api_v1 = get_twitter_client()
         logger.info("  Uploading media to Twitter...")
-        api_v1.media_upload(filename=image_path)
         tweet = api_v1.update_status_with_media(
             status=build_tweet_text(movie),
             filename=image_path
