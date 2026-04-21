@@ -39,6 +39,8 @@ def _get_driver():
 
     # 🔥 STABLE HEADLESS (IMPORTANT)
     options.add_argument("--headless")
+    options.add_argument("--blink-settings=imagesEnabled=false")
+    options.add_argument("--disable-features=VizDisplayCompositor")
 
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
