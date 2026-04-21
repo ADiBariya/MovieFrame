@@ -15,6 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
 
 
 
@@ -27,6 +28,10 @@ logger = logging.getLogger(__name__)
 COOKIE_FILE = "twitter_cookies.json"
 PROXY = os.getenv("PROXY")
 DEFAULT_WAIT_TIMEOUT = 60
+COMPOSE_URLS = [
+    "https://x.com/compose/post",
+    "https://twitter.com/compose/post",
+]
 
 
 def _safe_version(binary_path: str) -> str:
@@ -46,6 +51,65 @@ def _driver_diagnostics() -> str:
         f"chromium={_safe_version(chromium_binary)}; "
         f"chromedriver={_safe_version(chromedriver_binary)}"
     )
+
+
+def _log_compose_debug(driver, reason: str):
+    try:
+        logger.error(
+            f"❌ Compose page issue ({reason}). current_url={driver.current_url}, title={driver.title}"
+        )
+    except Exception:
+        logger.error(f"❌ Compose page issue ({reason}). Unable to read current URL/title.")
+
+    try:
+        source = driver.page_source or ""
+        logger.error(f"Compose HTML snippet: {source[:3000]}")
+    except Exception as e:
+        logger.error(f"Unable to read compose page source: {e}")
+
+
+def _open_compose_and_get_tweet_box(driver, wait):
+    selectors = [
+        (By.CSS_SELECTOR, "div[data-testid='tweetTextarea_0']"),
+        (By.XPATH, "//div[@data-testid='tweetTextarea_0']"),
+        (By.XPATH, "//div[@role='textbox' and @data-testid='tweetTextarea_0']"),
+        (By.XPATH, "//div[@role='textbox']"),
+    ]
+
+    for compose_url in COMPOSE_URLS:
+        try:
+            driver.get(compose_url)
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "main")))
+            time.sleep(2)
+        except Exception as e:
+            logger.warning(f"⚠️ Compose navigation failed ({compose_url}): {e}")
+            continue
+
+        current_url = (driver.current_url or "").lower()
+        if "/compose/" not in current_url:
+            logger.warning(f"⚠️ Unexpected compose redirect: {driver.current_url}")
+
+        try:
+            driver.find_element(By.TAG_NAME, "body").click()
+            time.sleep(1)
+        except Exception:
+            pass
+
+        for by, value in selectors:
+            try:
+                tweet_box = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((by, value))
+                )
+                logger.info(f"✅ Compose editor found with selector: {value}")
+                return tweet_box
+            except Exception:
+                continue
+
+        _log_compose_debug(driver, f"tweet box not found for {compose_url}")
+
+    _log_compose_debug(driver, "all compose URL/selector attempts failed")
+    raise TimeoutException("Tweet textbox not found on compose page")
 
 
 
@@ -167,18 +231,7 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         if not load_cookies(driver):
             return False
 
-        # 🔥 Open compose
-        driver.get("https://twitter.com/compose/post")
-        time.sleep(5)
-
-        # 🔥 Fix focus issue (IMPORTANT)
-        driver.find_element(By.TAG_NAME, "body").click()
-        time.sleep(1)
-
-        # 🔥 STABLE selector
-        tweet_box = wait.until(
-            EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']"))
-        )
+        tweet_box = _open_compose_and_get_tweet_box(driver, wait)
 
         human_type(tweet_box, tweet_text)
         time.sleep(random.uniform(2, 3))
