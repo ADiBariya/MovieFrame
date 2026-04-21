@@ -32,14 +32,12 @@ COMPOSE_URLS = [
 
 
 # ───────── DRIVER ─────────
-# ───────── DRIVER ─────────
 def _get_driver():
     options = webdriver.ChromeOptions()
     options.binary_location = "/usr/bin/chromium"
 
-    # 🔥 STABLE HEADLESS (IMPORTANT)
+    # 🔥 STABLE HEADLESS
     options.add_argument("--headless")
-    options.add_argument("--blink-settings=imagesEnabled=false")
     options.add_argument("--disable-features=VizDisplayCompositor")
 
     options.add_argument("--no-sandbox")
@@ -61,12 +59,6 @@ def _get_driver():
     options.add_argument("--no-first-run")
     options.add_argument("--disable-renderer-backgrounding")
 
-    # 🔥 DISABLE IMAGES
-    prefs = {
-        "profile.managed_default_content_settings.images": 2,
-    }
-    options.add_experimental_option("prefs", prefs)
-
     if PROXY:
         options.add_argument(f'--proxy-server={PROXY}')
 
@@ -74,6 +66,7 @@ def _get_driver():
         service=Service("/usr/bin/chromedriver"),
         options=options
     )
+
 
 # ───────── HUMAN TYPE ─────────
 def human_type(el, text):
@@ -120,11 +113,8 @@ def load_cookies(driver):
     for cookie in cookies:
         try:
             cookie.pop("sameSite", None)
-
-            # 🔥 IMPORTANT FIX
             cookie["domain"] = ".x.com"
             cookie["secure"] = True
-
             driver.add_cookie(cookie)
         except:
             pass
@@ -134,7 +124,6 @@ def load_cookies(driver):
 
     logger.info("✅ Cookies loaded")
 
-    # 🔥 LOGIN CHECK
     driver.get("https://x.com/home")
     time.sleep(5)
 
@@ -151,7 +140,6 @@ def _open_compose_and_get_tweet_box(driver, wait):
     driver.get("https://x.com/home")
     time.sleep(5)
 
-    # 🔥 open compose via button (stable)
     compose_btn = wait.until(
         EC.element_to_be_clickable((By.XPATH, "//a[@data-testid='SideNav_NewTweet_Button']"))
     )
@@ -201,15 +189,27 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         """, upload)
 
         upload.send_keys(image_path)
-        logger.info("📤 Image uploaded")
+        logger.info("📤 Image uploading...")
 
-        time.sleep(6)
+        # 🔥 WAIT FOR IMAGE ATTACH
+        try:
+            wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, "//div[@data-testid='tweetPhoto']")
+                )
+            )
+            logger.info("✅ Image attached successfully")
+        except:
+            logger.error("❌ Image attach failed")
+            return False
 
-        # 🔥 close popup
+        time.sleep(2)
+
+        # close popup
         tweet_box.send_keys(" ")
         time.sleep(1)
 
-        # 🔥 click tweet
+        # click tweet
         clicked = False
 
         for _ in range(3):
