@@ -14,10 +14,10 @@ from twitter_poster import post_meme_tweet
 from PIL import Image
 from io import BytesIO
 
-# ─── Load .env ─────────────────────────────────────────────
+# env load
 load_dotenv()
 
-# ─── Logging Setup ─────────────────────────────────────────
+# logging
 Path("logs").mkdir(exist_ok=True)
 
 _stdout_handler = logging.StreamHandler(sys.stdout)
@@ -30,7 +30,7 @@ _file_handler.setFormatter(_formatter)
 logging.basicConfig(level=logging.INFO, handlers=[_stdout_handler, _file_handler])
 logger = logging.getLogger(__name__)
 
-# ─── Config ────────────────────────────────────────────────
+# vars
 FILMGRAB_BASE = "https://film-grab.com"
 POSTED_DB = "posted_frames.json"
 TEMP_IMAGE = "temp_frame.jpg"
@@ -39,22 +39,34 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
-# ─── 🔥 HASH SYSTEM ────────────────────────────────────────
+# tag sys
 
 def generate_hash(url: str) -> str:
     return hashlib.md5(url.encode()).hexdigest()
 
-# ─── Helpers ───────────────────────────────────────────────
+#helperss
 
 def load_posted():
     if Path(POSTED_DB).exists():
-        with open(POSTED_DB, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(POSTED_DB, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+                # 🔥 AUTO FIX OLD DB
+                if "posted_hashes" not in data:
+                    data = {"posted_hashes": []}
+
+                return data
+        except:
+            return {"posted_hashes": []}
+
     return {"posted_hashes": []}
+
 
 def save_posted(db):
     with open(POSTED_DB, "w", encoding="utf-8") as f:
         json.dump(db, f, indent=2, ensure_ascii=False)
+
 
 def get_soup(url, retries=3):
     for attempt in range(retries):
@@ -68,7 +80,7 @@ def get_soup(url, retries=3):
             time.sleep(5)
     return None
 
-# ─── Scraper ───────────────────────────────────────────────
+# scrappp
 
 def get_movie_posts(page=1):
     url = f"{FILMGRAB_BASE}/page/{page}/" if page > 1 else FILMGRAB_BASE
@@ -85,6 +97,7 @@ def get_movie_posts(page=1):
 
     logger.info(f"Page {page}: {len(posts)} movies")
     return posts
+
 
 def get_frames_from_movie(movie_url):
     soup = get_soup(movie_url)
@@ -107,11 +120,10 @@ def get_frames_from_movie(movie_url):
     logger.info(f"  Found {len(frames)} frames")
     return list(set(frames))
 
-# ─── 🔥 NEW DUPLICATE SAFE PICK ────────────────────────────
+# duplicate handlerrr
 
 def pick_unposted_frame(frames, db):
     used_hashes = set(db.get("posted_hashes", []))
-
     random.shuffle(frames)
 
     for f in frames:
@@ -121,7 +133,7 @@ def pick_unposted_frame(frames, db):
 
     return None
 
-# ─── 🔥 SAFE DOWNLOAD + FIX ─────────────────────────────────
+# downloadd
 
 def download_image(url, path):
     try:
@@ -154,12 +166,12 @@ def download_image(url, path):
         logger.error(f"Download error: {e}")
         return False
 
-# ─── Tweet Text ────────────────────────────────────────────
+# your tweet text
 
 def build_tweet_text(movie):
-    return f"{movie['title']}\n\n#Cinema #MovieFrames #Viral"
+    return f"{movie['title']}\n\n#Cinema #MovieFrames #Viral #Cinemaframes"
 
-# ─── MAIN ─────────────────────────────────────────────────
+#mainnn
 
 def run():
     logger.info("=" * 50)
@@ -183,7 +195,6 @@ def run():
             logger.info(f"Movie: {movie['title']}")
             logger.info(f"Frame: {frame}")
 
-            # 🔥 RETRY DOWNLOAD
             success_download = False
             for _ in range(3):
                 if download_image(frame, TEMP_IMAGE):
@@ -204,9 +215,14 @@ def run():
                     os.remove(TEMP_IMAGE)
 
             if success:
+                if "posted_hashes" not in db:
+                    db["posted_hashes"] = []
+
                 h = generate_hash(frame)
-                db["posted_hashes"].append(h)
-                save_posted(db)
+
+                if h not in db["posted_hashes"]:
+                    db["posted_hashes"].append(h)
+                    save_posted(db)
 
                 logger.info("✅ DONE")
                 return
