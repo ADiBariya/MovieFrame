@@ -5,6 +5,7 @@ import random
 import logging
 import time
 import requests
+import hashlib
 from bs4 import BeautifulSoup
 from pathlib import Path
 from dotenv import load_dotenv
@@ -38,13 +39,18 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0"
 }
 
+# ─── 🔥 HASH SYSTEM ────────────────────────────────────────
+
+def generate_hash(url: str) -> str:
+    return hashlib.md5(url.encode()).hexdigest()
+
 # ─── Helpers ───────────────────────────────────────────────
 
 def load_posted():
     if Path(POSTED_DB).exists():
         with open(POSTED_DB, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
+    return {"posted_hashes": []}
 
 def save_posted(db):
     with open(POSTED_DB, "w", encoding="utf-8") as f:
@@ -101,10 +107,19 @@ def get_frames_from_movie(movie_url):
     logger.info(f"  Found {len(frames)} frames")
     return list(set(frames))
 
-def pick_unposted_frame(movie, frames, db):
-    used = set(db.get(movie["url"], []))
-    available = [f for f in frames if f not in used]
-    return random.choice(available) if available else None
+# ─── 🔥 NEW DUPLICATE SAFE PICK ────────────────────────────
+
+def pick_unposted_frame(frames, db):
+    used_hashes = set(db.get("posted_hashes", []))
+
+    random.shuffle(frames)
+
+    for f in frames:
+        h = generate_hash(f)
+        if h not in used_hashes:
+            return f
+
+    return None
 
 # ─── 🔥 SAFE DOWNLOAD + FIX ─────────────────────────────────
 
@@ -161,7 +176,7 @@ def run():
             if not frames:
                 continue
 
-            frame = pick_unposted_frame(movie, frames, db)
+            frame = pick_unposted_frame(frames, db)
             if not frame:
                 continue
 
@@ -189,8 +204,10 @@ def run():
                     os.remove(TEMP_IMAGE)
 
             if success:
-                db.setdefault(movie["url"], []).append(frame)
+                h = generate_hash(frame)
+                db["posted_hashes"].append(h)
                 save_posted(db)
+
                 logger.info("✅ DONE")
                 return
             else:
