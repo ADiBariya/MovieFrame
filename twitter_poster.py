@@ -4,6 +4,8 @@ import random
 import logging
 import json
 import requests
+import hashlib
+from datetime import datetime
 from dotenv import load_dotenv
 
 from selenium import webdriver
@@ -17,12 +19,25 @@ from selenium.webdriver.common.keys import Keys
 from PIL import Image
 from io import BytesIO
 
+# 🔥 MONGO
+from pymongo import MongoClient
+
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 COOKIE_FILE = "twitter_cookies.json"
 PROXY = os.getenv("PROXY")
 DEFAULT_WAIT_TIMEOUT = 60
+
+# 🔥 DB CONNECT (CHANGE URI IF NEEDED)
+client = MongoClient(os.getenv("MONGO_URI", "mongodb+srv://tanog80742_db_user:vvvqLPgNS3tHkhss@cluster0.mfpx8ib.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"))
+db = client["Postie"]
+posted = db["posted"]
+
+
+# ───────── HASH ─────────
+def generate_hash(data: str):
+    return hashlib.md5(data.encode()).hexdigest()
 
 
 # ───────── DRIVER ─────────
@@ -37,20 +52,15 @@ def _get_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
 
-    # crash fix
     options.add_argument("--renderer-process-limit=1")
     options.add_argument("--single-process")
     options.add_argument("--js-flags=--max-old-space-size=128")
 
-    # light mode
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-background-networking")
     options.add_argument("--disable-sync")
     options.add_argument("--no-first-run")
     options.add_argument("--disable-renderer-backgrounding")
-
-    # ❌ REMOVE IMAGE BLOCK (IMPORTANT FIX)
-    # options.add_argument("--blink-settings=imagesEnabled=false")
 
     options.add_argument("--window-size=800,600")
 
@@ -156,6 +166,15 @@ def _open_compose_and_get_tweet_box(driver, wait):
 # ───────── MAIN POST ─────────
 def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
     driver = None
+
+    # 🔥 DUPLICATE CHECK
+    post_id = generate_hash(image_path + tweet_text)
+
+    exists = posted.find_one({"hash": post_id})
+    if exists:
+        logger.info("⚠️ Already posted, skipping...")
+        return False
+
     try:
         driver = _get_driver()
         wait = WebDriverWait(driver, DEFAULT_WAIT_TIMEOUT)
@@ -186,7 +205,6 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         upload.send_keys(image_path)
         logger.info("📤 Image uploading...")
 
-        # ✅ REAL FIX — WAIT FOR IMAGE ATTACH
         try:
             wait.until(
                 EC.presence_of_element_located(
@@ -200,7 +218,6 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
 
         time.sleep(2)
 
-        # close hashtag popup
         tweet_box.send_keys(" ")
         time.sleep(1)
 
@@ -223,6 +240,14 @@ def post_meme_tweet(image_path: str, tweet_text: str) -> bool:
         time.sleep(6)
 
         logger.info("✅ Tweet posted")
+
+        # 🔥 SAVE POST
+        posted.insert_one({
+            "hash": post_id,
+            "image": image_path,
+            "text": tweet_text,
+            "created_at": datetime.utcnow()
+        })
 
         driver.quit()
         return True
