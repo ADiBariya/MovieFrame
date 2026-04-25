@@ -27,7 +27,7 @@ def get_random_film_frame() -> FilmFrame | None:
 def get_latest_film_frames(count: int = 10) -> list[FilmFrame]:
     frames = []
     try:
-        resp = requests.get(FILMGRAB_BASE_URL, headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT)
+        resp = requests.get(f"{FILMGRAB_BASE_URL}/page/2/", headers=REQUEST_HEADERS, timeout=REQUEST_TIMEOUT)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
