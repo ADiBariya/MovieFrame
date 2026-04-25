@@ -180,7 +180,7 @@ def run():
 
     db = load_posted()
 
-    for page in range(1, 3):
+    for page in range(2, 7):
         movies = get_movie_posts(page)
 
         for movie in movies:
@@ -227,8 +227,8 @@ def run():
                 logger.info("✅ DONE")
                 return
             else:
-                logger.warning("Retry next run")
-                return
+                logger.warning("Retry next post")
+                continue
 
 
 if __name__ == "__main__":
