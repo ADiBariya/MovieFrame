@@ -17,7 +17,7 @@ import { formatDate } from "@/lib/utils";
 const schema = z.object({
   pages_to_scrape: z.number().min(1).max(10),
   hashtags: z.string().min(1, "Add at least one hashtag"),
-  platform: z.string().default("twitter"),
+  platform: z.string().min(1),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -28,7 +28,7 @@ export default function AutomationsPage() {
   const [triggerSuccess, setTriggerSuccess] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema) as import("react-hook-form").Resolver<FormValues>,
+    resolver: zodResolver(schema),
     defaultValues: {
       pages_to_scrape: 3,
       hashtags: "#Cinema #MovieFrames #Cinemaframes",

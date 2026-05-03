@@ -11,6 +11,8 @@ jobs:
   api-lint:
     name: API — Lint & Type-check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: api
@@ -35,6 +37,8 @@ jobs:
   frontend-lint:
     name: Frontend — Lint & Type-check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: frontend
@@ -61,6 +65,8 @@ jobs:
   frontend-build:
     name: Frontend — Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: frontend-lint
     defaults:
       run:
