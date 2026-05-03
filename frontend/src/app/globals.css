@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* ── Cinema-Dark Theme ────────────────────────────────────────────────────── */
+@theme inline {
+  /* Base colors */
+  --color-cinema-bg: #0A0A0F;
+  --color-cinema-surface: #111118;
+  --color-cinema-surface2: #1A1A25;
+  --color-cinema-primary: #F59E0B;
+  --color-cinema-primary-dark: #D97706;
+  --color-cinema-secondary: #6366F1;
+  --color-cinema-accent: #EC4899;
+  --color-cinema-muted: #374151;
+  --color-cinema-border: #1F2937;
+  --color-cinema-text: #F9FAFB;
+  --color-cinema-text-muted: #9CA3AF;
+
+  --color-background: #0A0A0F;
+  --color-foreground: #F9FAFB;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Radius tokens */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+:root {
+  --background: #0A0A0F;
+  --foreground: #F9FAFB;
+}
+
+* {
+  border-color: #1F2937;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: #111118; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+
+/* ── Film strip animation ─────────────────────────────────────────────────── */
+@keyframes filmstrip {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-filmstrip {
+  animation: filmstrip 30s linear infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+  50%       { box-shadow: 0 0 40px rgba(245, 158, 11, 0.6); }
+}
+
+.animate-glow {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* ── Glassmorphism ────────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(17, 17, 24, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(31, 41, 55, 0.8);
+}
+
+/* ── Gradient text ────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #F59E0B 0%, #EC4899 50%, #6366F1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Primary button glow ──────────────────────────────────────────────────── */
+.btn-primary-glow {
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+  transition: box-shadow 0.2s ease;
+}
+.btn-primary-glow:hover {
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.6);
+}
+
