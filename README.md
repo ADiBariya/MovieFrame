@@ -1,189 +1,172 @@
-# 🤖 Twitter Meme Bot — Full Automation
+# 🎬 MovieFrame
 
-Google Trends se trending topic uthao → Reddit se viral meme lo → NVIDIA AI se caption banao → Twitter pe post karo. **Fully automatic, har ghante.**
+> **Automate your cinematic content.** Scrape stunning film frames from [film-grab.com](https://film-grab.com) and post them to Twitter/X — fully automated.
 
----
-
-## ⚡ Features
-
-- 📈 **Google Trends** se real-time aur daily trending topics
-- 🖼️ **Reddit** se viral meme images (5000+ upvotes wale)
-- 🤖 **NVIDIA AI (LLaMA 70B)** se funny meme captions
-- 🎨 **PIL** se classic meme-style text overlay
-- 🐦 **Tweepy v2** se automatic Twitter posting
-- ⏰ **APScheduler** se har ghante automatic post
-- 🛡️ Duplicate prevention — ek hi topic baar-baar nahi jaata
-- 📋 Full logging system
+[![CI](https://github.com/ADiBariya/MovieFrame/actions/workflows/ci.yml/badge.svg)](https://github.com/ADiBariya/MovieFrame/actions/workflows/ci.yml)
 
 ---
 
-## 📁 Project Structure
+## Architecture
 
 ```
-twitter_meme_bot/
-├── main.py              ← Yahi run karo (entry point)
-├── bot.py               ← Main orchestrator
-├── config.py            ← Saari settings & API keys
-├── trends_fetcher.py    ← Google Trends integration
-├── reddit_fetcher.py    ← Reddit viral memes
-├── nvidia_client.py     ← AI caption generation
-├── meme_builder.py      ← Image text overlay
-├── twitter_poster.py    ← Twitter API posting
-├── requirements.txt     ← Python packages
-├── Dockerfile           ← Container deployment
-├── railway.toml         ← Railway.app config
-└── .env.example         ← Keys template
+MovieFrame/
+├── main.py               # Core bot: scrape + post loop
+├── movie.py              # Film-grab.com scraper
+├── twitter_poster.py     # Twitter/X Selenium poster
+│
+├── api/                  # FastAPI backend (SaaS API)
+│   ├── main.py           # App + CORS + routes
+│   ├── models.py         # Pydantic schemas
+│   ├── auth.py           # JWT + password hashing
+│   ├── config.py         # Settings (pydantic-settings)
+│   ├── database.py       # Motor MongoDB client
+│   ├── deps.py           # FastAPI dependency injection
+│   └── routes/
+│       ├── auth.py       # POST /auth/register|login, GET /auth/me
+│       ├── automations.py# GET|POST /automations/run + history
+│       ├── platforms.py  # CRUD /platforms
+│       ├── analytics.py  # GET /analytics/overview|history
+│       └── billing.py    # GET /billing/plans|status (Stripe stub)
+│
+└── frontend/             # Next.js 14 App Router (SaaS UI)
+    └── src/
+        ├── app/
+        │   ├── page.tsx                  # Landing page
+        │   ├── (marketing)/pricing/      # Pricing page
+        │   ├── (auth)/login|register/    # Auth pages
+        │   └── (app)/dashboard|automations|platforms|analytics|billing|settings/
+        ├── components/
+        │   ├── ui/           # Button, Input, Card, Modal, StatusBadge, Skeleton
+        │   ├── marketing/    # HeroSection, FeaturesSection, PricingSection…
+        │   ├── app/          # Sidebar, Topbar, StatsCard, RunHistoryTable
+        │   └── shared/       # Navbar, Footer
+        ├── hooks/            # useAuth, useAutomations
+        ├── lib/              # api.ts (typed client), auth.ts, utils.ts
+        └── types/            # index.ts (all shared TS types)
 ```
 
 ---
 
-## 🔑 Step 1 — API Keys Setup
+## Quick Start
 
-### 1. NVIDIA API Key
-1. Jao: https://build.nvidia.com
-2. Sign up / login karo
-3. Koi bhi model choose karo (jaise LLaMA 3.1 70B)
-4. "Get API Key" button dabao
-5. Key copy karo → `config.py` mein `NVIDIA_API_KEY` mein daalo
-
-### 2. Twitter / X API Keys
-1. Jao: https://developer.twitter.com
-2. "Create Project" → "Create App" karo
-3. **Read & Write** permissions enable karo (important!)
-4. Ye 5 cheezein chahiye:
-   - API Key
-   - API Key Secret
-   - Access Token
-   - Access Token Secret
-   - Bearer Token
-5. `config.py` mein daalo
-
-### 3. Reddit API (Optional, memes ke liye better)
-1. Jao: https://www.reddit.com/prefs/apps
-2. "create another app" → "script" type choose karo
-3. Client ID aur Client Secret copy karo
-4. `config.py` mein daalo
-
----
-
-## 🚀 Step 2 — Local Chalao
+### 1. Clone & configure
 
 ```bash
-# 1. Clone karo ya files download karo
-cd twitter_meme_bot
+git clone https://github.com/ADiBariya/MovieFrame.git
+cd MovieFrame
 
-# 2. Virtual environment banao
-python -m venv venv
-source venv/bin/activate      # Linux/Mac
-# ya
-venv\Scripts\activate         # Windows
+# Bot credentials
+cp .env.example .env
+# Edit .env with your Twitter API keys
+```
 
-# 3. Dependencies install karo
+### 2. Run the bot (original)
+
+```bash
 pip install -r requirements.txt
-
-# 4. config.py mein apni API keys daalo
-nano config.py    # ya koi bhi editor
-
-# 5. Bot chalao!
 python main.py
 ```
 
-Bot automatically:
-- Pehla post turant karega
-- Phir har 1 ghante mein post karta rahega
-
----
-
-## ☁️ Step 3 — Free Cloud Deployment (Railway.app)
-
-### Railway pe deploy karo (sabse easy):
-
-1. **GitHub pe push karo:**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial bot"
-   git remote add origin https://github.com/TUMHARA_USERNAME/meme-bot.git
-   git push -u origin main
-   ```
-
-2. **Railway.app pe:**
-   - Jao: https://railway.app
-   - "New Project" → "Deploy from GitHub repo"
-   - Apna repo select karo
-
-3. **Environment variables add karo:**
-   - Railway dashboard → Variables tab
-   - `.env.example` ke saare variables add karo apni keys ke saath
-
-4. **Deploy!** Railway automatically Dockerfile se build karega
-
-### Alternative: Render.com
-1. https://render.com → New Web Service
-2. GitHub repo connect karo
-3. Environment type: Docker
-4. Environment variables add karo
-5. Deploy!
-
----
-
-## ⚙️ Configuration
-
-`config.py` mein ye settings change kar sakte ho:
-
-| Setting | Default | Matlab |
-|---------|---------|--------|
-| `TRENDS_GEO` | `"IN"` | Trending topics kahan ke (IN=India, US=USA, ""=World) |
-| `POST_INTERVAL_HOURS` | `1` | Kitne ghante mein post hoga |
-| `MIN_REDDIT_UPVOTES` | `5000` | Minimum upvotes wale memes |
-| `MAX_MEME_AGE_HOURS` | `24` | Kitne purane memes accept honge |
-| `NVIDIA_MODEL` | `meta/llama-3.3-70b-instruct` | AI model |
-
----
-
-## 🔍 Logs Dekhna
+### 3. Start the FastAPI backend
 
 ```bash
-# Live logs
-tail -f logs/bot.log
+cd api
+cp .env.example .env        # Edit with MongoDB URI + JWT secret
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+# Docs: http://localhost:8000/docs
+```
 
-# Last 50 lines
-tail -50 logs/bot.log
+### 4. Start the Next.js frontend
+
+```bash
+cd frontend
+cp .env.example .env.local  # Edit NEXT_PUBLIC_API_URL
+npm install
+npm run dev
+# App: http://localhost:3000
 ```
 
 ---
 
-## ❓ Troubleshooting
+## SaaS Features
 
-**Twitter auth fail?**
-→ Developer account pe Read+Write permissions check karo
-→ Access tokens regenerate karo after permissions change
+### 🔐 Authentication
+- JWT-based auth (register / login / forgot-password)
+- Tokens stored in cookies + localStorage
+- Auto-redirect to `/login` on 401
 
-**NVIDIA API error?**
-→ build.nvidia.com pe API key valid hai check karo
-→ Model name sahi hai confirm karo
+### 🤖 Automation Dashboard
+- Trigger bot runs via UI
+- Configure pages to scrape, hashtags, platform
+- Real-time run status (queued → running → succeeded/failed)
+- Per-run log viewer
 
-**Google Trends rate limit?**
-→ Normal hai, bot fallback topics use karega automatically
+### 🔗 Platform Connections
+- Connect Twitter/X, Instagram, Reddit
+- Visual status indicators
+- Secure credential storage
 
-**Reddit memes nahi aa rahe?**
-→ Reddit API keys check karo, ya sirf templates use honge (fallback)
+### 📊 Analytics
+- Area chart: posts over time (last 30 days)
+- Bar chart: success vs failed runs
+- KPI cards: total posts, success rate, time saved
+
+### 💳 Billing (Stripe stub)
+| Plan       | Price | Highlights                               |
+|------------|-------|------------------------------------------|
+| Free       | $0    | 1 post/day, Twitter only                 |
+| Pro        | $19/mo| Unlimited posts, multi-platform          |
+| Business   | $49/mo| All platforms, team seats, API access    |
+
+Stripe checkout integration is stubbed — ready to wire up `sk_live_...`.
 
 ---
 
-## 📊 Twitter API Limits (Free Tier)
+## Environment Variables
 
-- 1,500 tweets/month
-- Har ghante post = ~720 tweets/month ✅ (limit ke andar)
+### `api/.env`
+| Variable | Description |
+|---|---|
+| `MONGODB_URI` | MongoDB Atlas connection string |
+| `JWT_SECRET` | Secret for signing JWTs |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `FRONTEND_URL` | Frontend origin for CORS |
+
+### `frontend/.env.local`
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | FastAPI base URL (`http://localhost:8000`) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
 
 ---
 
-## 🛑 Bot Band Karna
+## Tech Stack
 
-```bash
-# Local pe
-Ctrl + C
+| Layer | Technology |
+|---|---|
+| Bot | Python, BeautifulSoup, Selenium, Tweepy |
+| API | FastAPI, Motor (async MongoDB), python-jose, passlib |
+| Frontend | Next.js 14 App Router, TypeScript, Tailwind CSS v4 |
+| Charts | Recharts |
+| Forms | react-hook-form + zod |
+| Payments | Stripe (stubbed) |
+| CI | GitHub Actions |
 
-# Docker pe
-docker stop meme-bot
-```
+---
+
+## Color Palette (Cinema-dark)
+
+| Token | Value | Usage |
+|---|---|---|
+| `cinema-bg` | `#0A0A0F` | Page background |
+| `cinema-surface` | `#111118` | Cards, panels |
+| `cinema-primary` | `#F59E0B` | CTA buttons, active states |
+| `cinema-secondary` | `#6366F1` | Secondary accents |
+| `cinema-accent` | `#EC4899` | Gradient highlights |
+
+---
+
+## License
+
+MIT © ADiBariya
