@@ -1,189 +1,130 @@
-# 🤖 Twitter Meme Bot — Full Automation
+# MovieFrame
 
-Google Trends se trending topic uthao → Reddit se viral meme lo → NVIDIA AI se caption banao → Twitter pe post karo. **Fully automatic, har ghante.**
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue?logo=python)](https://www.python.org/)
+[![Last Commit](https://img.shields.io/github/last-commit/ADiBariya/MovieFrame?logo=github)](https://github.com/ADiBariya/MovieFrame/commits/main)
+[![Issues](https://img.shields.io/github/issues/ADiBariya/MovieFrame?logo=github)](https://github.com/ADiBariya/MovieFrame/issues)
+[![License](https://img.shields.io/github/license/ADiBariya/MovieFrame?logo=github)](LICENSE)
+[![Docker Ready](https://img.shields.io/badge/docker-ready-blue?logo=docker)](Dockerfile)
 
----
-
-## ⚡ Features
-
-- 📈 **Google Trends** se real-time aur daily trending topics
-- 🖼️ **Reddit** se viral meme images (5000+ upvotes wale)
-- 🤖 **NVIDIA AI (LLaMA 70B)** se funny meme captions
-- 🎨 **PIL** se classic meme-style text overlay
-- 🐦 **Tweepy v2** se automatic Twitter posting
-- ⏰ **APScheduler** se har ghante automatic post
-- 🛡️ Duplicate prevention — ek hi topic baar-baar nahi jaata
-- 📋 Full logging system
+> **MovieFrame** is an automated Twitter bot that discovers cinematic frames from [Film Grab](https://film-grab.com/), avoids duplicates, and posts them to Twitter at regular intervals.
 
 ---
 
-## 📁 Project Structure
+## ✨ Features
+
+- Scrapes movie frames, titles, directors, and years from **film-grab.com**
+- Downloads, processes, and deduplicates frames using image hashing
+- Creates and posts tweets via [Selenium](https://www.selenium.dev/) automation
+- Manages posting state with MongoDB and local JSON for history
+- Logs all operations; robust to common network and scraping issues
+- Docker-ready for simple deployment
+
+---
+
+## 🗂️ Project Structure
 
 ```
-twitter_meme_bot/
-├── main.py              ← Yahi run karo (entry point)
-├── bot.py               ← Main orchestrator
-├── config.py            ← Saari settings & API keys
-├── trends_fetcher.py    ← Google Trends integration
-├── reddit_fetcher.py    ← Reddit viral memes
-├── nvidia_client.py     ← AI caption generation
-├── meme_builder.py      ← Image text overlay
-├── twitter_poster.py    ← Twitter API posting
-├── requirements.txt     ← Python packages
-├── Dockerfile           ← Container deployment
-├── railway.toml         ← Railway.app config
-└── .env.example         ← Keys template
+.
+├── main.py              # Main bot orchestration (scraping, posting)
+├── movie.py             # Movie frame scraping utility
+├── dupli.py             # Deduplication helpers via JSON
+├── twitter_poster.py    # Twitter automation (Selenium, MongoDB)
+├── requirements.txt     # Python dependencies
+├── Dockerfile           # Containerization setup
+├── railway.toml         # [Deployment config for Railway]
+├── posted.json          # (Generated) Tracks posted frames
+├── twitter_cookies.json # (Required) For Twitter session auth
+├── .env.example         # ENV config template
+└── logs/                # Log files output
 ```
 
 ---
 
-## 🔑 Step 1 — API Keys Setup
+## Quick Start
 
-### 1. NVIDIA API Key
-1. Jao: https://build.nvidia.com
-2. Sign up / login karo
-3. Koi bhi model choose karo (jaise LLaMA 3.1 70B)
-4. "Get API Key" button dabao
-5. Key copy karo → `config.py` mein `NVIDIA_API_KEY` mein daalo
-
-### 2. Twitter / X API Keys
-1. Jao: https://developer.twitter.com
-2. "Create Project" → "Create App" karo
-3. **Read & Write** permissions enable karo (important!)
-4. Ye 5 cheezein chahiye:
-   - API Key
-   - API Key Secret
-   - Access Token
-   - Access Token Secret
-   - Bearer Token
-5. `config.py` mein daalo
-
-### 3. Reddit API (Optional, memes ke liye better)
-1. Jao: https://www.reddit.com/prefs/apps
-2. "create another app" → "script" type choose karo
-3. Client ID aur Client Secret copy karo
-4. `config.py` mein daalo
-
----
-
-## 🚀 Step 2 — Local Chalao
+### 1. Clone and Setup
 
 ```bash
-# 1. Clone karo ya files download karo
-cd twitter_meme_bot
-
-# 2. Virtual environment banao
+git clone https://github.com/ADiBariya/MovieFrame.git
+cd MovieFrame
 python -m venv venv
-source venv/bin/activate      # Linux/Mac
-# ya
-venv\Scripts\activate         # Windows
-
-# 3. Dependencies install karo
+source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
+```
 
-# 4. config.py mein apni API keys daalo
-nano config.py    # ya koi bhi editor
+Edit `.env` to set your MongoDB URI and optional proxy.
 
-# 5. Bot chalao!
+### 2. Twitter Cookies
+
+- Use Chrome or Firefox to export Twitter cookies as a `.json` file
+- Save as `twitter_cookies.json` in the project root
+
+### 3. Run Locally
+
+```bash
 python main.py
 ```
 
-Bot automatically:
-- Pehla post turant karega
-- Phir har 1 ghante mein post karta rahega
+The bot will scrape frames and post every 3 hours. Ensure Chrome/Chromium and ChromeDriver are installed and available in the expected paths for Selenium.
 
----
+### 4. Docker Deployment
 
-## ☁️ Step 3 — Free Cloud Deployment (Railway.app)
-
-### Railway pe deploy karo (sabse easy):
-
-1. **GitHub pe push karo:**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial bot"
-   git remote add origin https://github.com/TUMHARA_USERNAME/meme-bot.git
-   git push -u origin main
-   ```
-
-2. **Railway.app pe:**
-   - Jao: https://railway.app
-   - "New Project" → "Deploy from GitHub repo"
-   - Apna repo select karo
-
-3. **Environment variables add karo:**
-   - Railway dashboard → Variables tab
-   - `.env.example` ke saare variables add karo apni keys ke saath
-
-4. **Deploy!** Railway automatically Dockerfile se build karega
-
-### Alternative: Render.com
-1. https://render.com → New Web Service
-2. GitHub repo connect karo
-3. Environment type: Docker
-4. Environment variables add karo
-5. Deploy!
+```bash
+docker build -t movieframe-bot .
+docker run -d --env-file .env -v "$(pwd)/twitter_cookies.json:/app/twitter_cookies.json" movieframe-bot
+```
 
 ---
 
 ## ⚙️ Configuration
 
-`config.py` mein ye settings change kar sakte ho:
-
-| Setting | Default | Matlab |
-|---------|---------|--------|
-| `TRENDS_GEO` | `"IN"` | Trending topics kahan ke (IN=India, US=USA, ""=World) |
-| `POST_INTERVAL_HOURS` | `1` | Kitne ghante mein post hoga |
-| `MIN_REDDIT_UPVOTES` | `5000` | Minimum upvotes wale memes |
-| `MAX_MEME_AGE_HOURS` | `24` | Kitne purane memes accept honge |
-| `NVIDIA_MODEL` | `meta/llama-3.3-70b-instruct` | AI model |
+Set environment variables in your `.env`:
+- `MONGO_URI`: MongoDB connection string
+- `PROXY`: (optional) HTTP proxy for network requests
 
 ---
 
-## 🔍 Logs Dekhna
+## Dependencies
 
-```bash
-# Live logs
-tail -f logs/bot.log
+- **Python** >= 3.9
+- `requests`, `beautifulsoup4`, `selenium`, `pillow`
+- `python-dotenv`, `pymongo`
+- Chrome/Chromium + ChromeDriver for Selenium
 
-# Last 50 lines
-tail -50 logs/bot.log
-```
-
----
-
-## ❓ Troubleshooting
-
-**Twitter auth fail?**
-→ Developer account pe Read+Write permissions check karo
-→ Access tokens regenerate karo after permissions change
-
-**NVIDIA API error?**
-→ build.nvidia.com pe API key valid hai check karo
-→ Model name sahi hai confirm karo
-
-**Google Trends rate limit?**
-→ Normal hai, bot fallback topics use karega automatically
-
-**Reddit memes nahi aa rahe?**
-→ Reddit API keys check karo, ya sirf templates use honge (fallback)
+See `requirements.txt` for full list.
 
 ---
 
-## 📊 Twitter API Limits (Free Tier)
+##  How it Works
 
-- 1,500 tweets/month
-- Har ghante post = ~720 tweets/month ✅ (limit ke andar)
+1. **Frame Discovery:** Scrapes posts from film-grab.com, parses movie info and available frames.
+2. **Deduplication:** Each frame URL is hashed and checked against the posted database.
+3. **Image Processing:** Frame images are downloaded and normalized.
+4. **Twitter Automation:** Uses Selenium to log in and post via Twitter's web interface.
+5. **Persistence:** Posts are tracked in MongoDB and backed up with JSON.
+6. **Scheduling:** The bot runs indefinitely, posting at fixed intervals.
 
 ---
 
-## 🛑 Bot Band Karna
+## Disclaimer
 
-```bash
-# Local pe
-Ctrl + C
+This bot is for educational/archival purposes. Respect site usage and Twitter's automation policies.
 
-# Docker pe
-docker stop meme-bot
-```
+---
+
+## 📄 License
+
+[MIT](LICENSE)
+
+---
+
+## Contributing
+
+Feel free to open an issue or submit a pull request!
+
+---
+
+## 👤 Author
+
+- [ADiBariya](https://github.com/ADiBariya)
